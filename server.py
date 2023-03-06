@@ -1,44 +1,60 @@
 import socket
+import threading
 
-# Crearea unui obiect de tip socket pentru server
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-# Atribuirea unui port la server
-server_port = 12345
-
-# Legarea server-ului la adresa IP și portul ales
-server_socket.bind(('127.0.0.1', server_port))
-
-# Ascultarea conexiunilor de la clienți
-server_socket.listen()
-
-print(f"Serverul asculta la portul {server_port}")
-
-# Crearea unei liste de clienți conectați
-client_list = []
-
-while True:
-    # Acceptarea conexiunii de la un client
-    client_socket, client_address = server_socket.accept()
-
-    # Adăugarea clientului la lista de clienți
-    client_list.append(client_socket)
-
-    print(f"Clientul {client_address} s-a conectat.")
+def handle_client(client_socket, client_addr, clients):
+    print(f"[NEW CONNECTION] {client_addr} conectat.")
 
     while True:
-        # Primirea mesajului de la client
-        message = client_socket.recv(1024).decode()
+        try:
+            # Așteptăm primirea unui mesaj de la client
+            message = client_socket.recv(1024).decode('utf-8')
+            if message:
+                print(f"[{client_addr}] {message}")
+                # Iterăm prin toți clienții conectați și le trimitem mesajul
+                for client in clients:
+                    if client != client_socket:
+                        client.sendall(message.encode('utf-8'))
+            else:
+                # Dacă nu am primit niciun mesaj de la client, înseamnă că s-a întrerupt conexiunea
+                print(f"[DISCONNECT] {client_addr} sa deconectat.")
+                client_socket.close()
+                clients.remove(client_socket)
+                break
 
-        # Verificarea dacă mesajul este gol (clientul a închis conexiunea)
-        if not message:
-            # Eliminarea clientului din lista de clienți
-            client_list.remove(client_socket)
-            print(f"Clientul {client_address} s-a deconectat.")
+        except ConnectionResetError:
+            print(f"[DISCONNECT] {client_addr} sa deconenctat.")
+            client_socket.close()
+            clients.remove(client_socket)
             break
 
-        print(f"Mesaj primit de la {client_address}: {message}")
+def start_server():
+    # Creăm un socket de tip TCP
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        # Retransmiterea mesajului la toți clienții conectați
-        for client in client_list:
-            client.send(message.encode())
+    # Ne asigurăm că putem refolosi adresa și portul serverului în cazul în care îl oprim și apoi îl pornim din nou
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    # Setăm adresa și portul pe care va fi disponibil serverul
+    server_address = ('localhost', 1234)
+    server_socket.bind(server_address)
+
+    # Ascultăm conexiuni
+    server_socket.listen()
+
+    print(f"[LISTENING] Serverul asculta pe portul {server_address}")
+
+    # Lista în care vom ține toți clienții conectați
+    clients = []
+
+    while True:
+        # Acceptăm conexiunea unui client
+        client_socket, client_address = server_socket.accept()
+
+        # Adăugăm clientul la lista de clienți conectați
+        clients.append(client_socket)
+
+        # Începem un fir de execuție separat pentru a gestiona comunicarea cu acest client
+        thread = threading.Thread(target=handle_client, args=(client_socket, client_address, clients))
+        thread.start()
+
+start_server()

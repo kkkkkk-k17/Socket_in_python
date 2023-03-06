@@ -1,23 +1,24 @@
 import socket
 
-# Crearea unui obiect de tip socket pentru client
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def start_client():
+    # Creăm un socket de tip TCP
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Atribuirea adresei IP și portului server-ului
-server_address = ('127.0.0.1', 12345)
+    # Setăm adresa și portul serverului la care ne vom conecta
+    server_address = ('localhost', 1234)
 
-# Conectarea la server
-client_socket.connect(server_address)
+    # Ne conectăm la server
+    client_socket.connect(server_address)
 
-while True:
-    # Introducerea mesajului de la tastatură
-    message = input("Introduceti un mesaj: ")
+    while True:
+        # Cerem utilizatorului să introducă un mesaj
+        message = input("Scrie un mesaj: ")
 
-    # Trimiterea mesajului la server
-    client_socket.send(message.encode())
+        # Trimitem mesajul la server
+        client_socket.sendall(message.encode('utf-8'))
 
-    # Primirea mesajelor de la server
-    received_message = client_socket.recv(1024).decode()
+        # Așteptăm să primim un răspuns de la server și afișăm mesajul primit
+        response = client_socket.recv(1024).decode('utf-8')
+        print(f"Server response: {response}")
 
-    # Afisarea mesajelor primite de la server
-    print("Mesaj primit de la server: " + received_message)
+start_client()
